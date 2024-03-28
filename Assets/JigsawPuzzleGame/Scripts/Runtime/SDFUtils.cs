@@ -34,6 +34,11 @@ namespace AillieoTech.Game
             return t * t * (3f - 2f * t);
         }
 
+        public static float Step(float edge, float x)
+        {
+            return x > edge ? 1 : 0;
+        }
+
         public static float SmoothMin(float a, float b, float k)
         {
             var h = Mathf.Max(k - Mathf.Abs(a - b), 0.0f) / k;

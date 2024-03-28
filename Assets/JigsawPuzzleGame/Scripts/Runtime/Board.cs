@@ -10,6 +10,5 @@ namespace AillieoTech.Game
 
     public class Board : MonoBehaviour
     {
-        
     }
 }

@@ -10,7 +10,7 @@ namespace AillieoTech.Game
     {
         Straight = 0,
         Notch,
-        Bulge
+        Bulge,
     }
 
     public enum EdgePosition : byte

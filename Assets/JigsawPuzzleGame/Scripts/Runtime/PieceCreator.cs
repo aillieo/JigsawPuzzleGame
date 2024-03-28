@@ -7,41 +7,69 @@
 namespace AillieoTech.Game
 {
     using System;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using UnityEngine;
 
     public static class PieceCreator
     {
-        private static readonly PieceData dummy = new PieceData(-1);
+        private static SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
-        public static Task<PieceData> CreatePiece(CuttingContext context, int index)
+        public static async Task<PieceData> CreatePiece(CuttingContext context, int index)
         {
             if (context.pieceData[index] != null)
             {
-                return Task.FromResult(context.pieceData[index]);
+                return context.pieceData[index];
             }
 
-            // place holder
-            context.pieceData[index] = dummy;
+            await semaphore.WaitAsync();
 
-            var tcs = new TaskCompletionSource<PieceData>();
-
-            ThreadPool.QueueUserWorkItem(_ =>
+            try
             {
-                try
+                if (context.pieceData[index] != null)
                 {
-                    var piece = CreatePieceInternal(context, index);
-                    context.pieceData[index] = piece;
-                    tcs.SetResult(piece);
+                    return context.pieceData[index];
                 }
-                catch (Exception e)
-                {
-                    tcs.SetException(e);
-                }
-            });
 
-            return tcs.Task;
+                var piece = await Task.Run(() => CreatePieceInternal(context, index));
+                context.pieceData[index] = piece;
+                return piece;
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        public static Texture2D CreateMaskTexture(PieceData piece)
+        {
+            var width = piece.extendedRect.width;
+            var height = piece.extendedRect.height;
+
+            var colors = piece.mask.Select(alpha => new Color32(alpha, alpha, alpha, alpha)).ToArray();
+
+            var texture = new Texture2D(width, height, TextureFormat.R8, false);
+            texture.SetPixels32(colors);
+
+            texture.Apply();
+
+            return texture;
+        }
+
+        public static Texture2D CreateBorderTexture(PieceData piece)
+        {
+            var width = piece.extendedRect.width;
+            var height = piece.extendedRect.height;
+
+            var colors = piece.border.Select(alpha => new Color32(alpha, alpha, alpha, alpha)).ToArray();
+
+            var texture = new Texture2D(width, height, TextureFormat.R8, false);
+            texture.SetPixels32(colors);
+
+            texture.Apply();
+
+            return texture;
         }
 
         private static PieceData CreatePieceInternal(CuttingContext context, int index)
@@ -52,7 +80,19 @@ namespace AillieoTech.Game
 
             ConfigEdgeShape(pieceData, context);
 
-            PopulateMask(pieceData, context);
+            var hash = GetEdgeShapeHash(pieceData);
+            var sharedMaskAndBorder = context.pieceData.FirstOrDefault(piece => piece != null && GetEdgeShapeHash(piece) == hash);
+            if (sharedMaskAndBorder != null)
+            {
+                // 有相同的edge形状 直接复用
+                pieceData.mask = sharedMaskAndBorder.mask;
+                pieceData.border = sharedMaskAndBorder.border;
+            }
+            else
+            {
+                PopulateMask(pieceData, context);
+                PopulateBorder(pieceData, context);
+            }
 
             return pieceData;
         }
@@ -87,12 +127,22 @@ namespace AillieoTech.Game
             piece.extendedRect = extendedRect;
         }
 
+        private static int GetEdgeShapeHash(PieceData piece)
+        {
+            var top = (int)piece.top;
+            var botton = (int)piece.bottom;
+            var left = (int)piece.left;
+            var right = (int)piece.right;
+            return top | (botton << 7) | (left << 14) | (right << 21);
+        }
+
         private static void PopulateMask(PieceData piece, CuttingContext context)
         {
             var extendedRect = piece.extendedRect;
             var width = extendedRect.width;
             var height = extendedRect.height;
-            piece.mask = new float[width * height];
+            piece.mask = new byte[width * height];
+
             var xMin = extendedRect.xMin;
             var yMin = extendedRect.yMin;
 
@@ -102,11 +152,65 @@ namespace AillieoTech.Game
             {
                 for (var y = yMin; y < extendedRect.yMax; y++)
                 {
-                    var index = (x - xMin) + (y - yMin) * width;
+                    var index = (x - xMin) + ((y - yMin) * width);
                     var point = new Vector2Int(x, y);
                     var sdfValue = GetSDFValue(piece, point);
-                    var alpha = 1 - SDFUtils.SmoothStep(sdfThresholdL, sdfThresholdH, sdfValue);
-                    piece.mask[index] = alpha;
+                    // var alpha = 1 - SDFUtils.SmoothStep(sdfThresholdL, sdfThresholdH, sdfValue);
+                    var alpha = 1 - SDFUtils.Step(0, sdfValue);
+                    piece.mask[index] = (byte)(alpha * 255);
+                }
+            }
+        }
+
+        private static readonly Vector2Int[] neighbors = new Vector2Int[]
+        {
+            new Vector2Int(-1, -1),
+            new Vector2Int(-1, 0),
+            new Vector2Int(-1, 1),
+            new Vector2Int(0, -1),
+            new Vector2Int(0, 1),
+            new Vector2Int(1, -1),
+            new Vector2Int(1, 0),
+            new Vector2Int(1, 1),
+        };
+
+        private static void PopulateBorder(PieceData piece, CuttingContext context)
+        {
+            var extendedRect = piece.extendedRect;
+            var width = extendedRect.width;
+            var height = extendedRect.height;
+            piece.border = new byte[width * height];
+
+            for (var x = 0; x < width; x++)
+            {
+                for (var y = 0; y < height; y++)
+                {
+                    var index = x + (y * width);
+                    if (piece.border[index] > 0)
+                    {
+                        continue;
+                    }
+
+                    var centerValue = piece.mask[index];
+
+                    foreach (var n in neighbors)
+                    {
+                        var neighborX = x + n.x;
+                        var neighborY = y + n.y;
+                        if (neighborX < 0 || neighborX >= width || neighborY < 0 || neighborY >= height)
+                        {
+                            continue;
+                        }
+
+                        var neighborIndex = neighborX + (neighborY * width);
+                        var thisValue = piece.mask[neighborIndex];
+                        if (thisValue != centerValue)
+                        {
+                            piece.border[index] = 255;
+                            piece.border[neighborIndex] = 255;
+                            break;
+                        }
+                    }
                 }
             }
         }

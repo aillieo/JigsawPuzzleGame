@@ -14,7 +14,7 @@ namespace AillieoTech.Game
         public readonly Vector2Int dimension;
 
         internal readonly Vector2 pieceRawSize;
-        internal readonly PieceData[] pieceData; 
+        internal readonly PieceData[] pieceData;
 
         public CuttingContext(Vector2Int boardSize, Vector2Int dimension)
         {

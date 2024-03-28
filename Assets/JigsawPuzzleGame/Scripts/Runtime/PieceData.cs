@@ -17,7 +17,8 @@ namespace AillieoTech.Game
         public EdgeShape left;
         public EdgeShape right;
 
-        public float[] mask;
+        public byte[] mask;
+        public byte[] border;
 
         public RectInt rawRect;
         public RectInt extendedRect;

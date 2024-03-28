@@ -17,33 +17,28 @@ namespace AillieoTech.Game
 
         public Vector2Int dimensions;
 
-        public Vector4 border;
-
-        public float thresholdL = -10f;
-        public float thresholdH = 10f;
-
         public int pieceIndexA;
         public int pieceIndexB;
 
         [ContextMenu("Cut")]
         public async void Cut()
         {
-            var context = new CuttingContext(new Vector2Int(this.sourceTexture.width, this.sourceTexture.height), dimensions);
-            var pieceDataA = await PieceCreator.CreatePiece(context, pieceIndexA);
-            var pieceDataB = await PieceCreator.CreatePiece(context, pieceIndexB);
+            var context = new CuttingContext(new Vector2Int(this.sourceTexture.width, this.sourceTexture.height), this.dimensions);
+            var pieceDataA = await PieceCreator.CreatePiece(context, this.pieceIndexA);
+            var pieceDataB = await PieceCreator.CreatePiece(context, this.pieceIndexB);
 
-            Color32[] sourcePixels = sourceTexture.GetPixels32();
-            Color32[] targetPixels = targetTexture.GetPixels32();
+            Color32[] sourcePixels = this.sourceTexture.GetPixels32();
+            Color32[] targetPixels = this.targetTexture.GetPixels32();
 
-            var width = sourceTexture.width;
-            var height = sourceTexture.height;
+            var width = this.sourceTexture.width;
+            var height = this.sourceTexture.height;
 
             for (var y = 0; y < height; y++)
             {
                 for (var x = 0; x < width; x++)
                 {
-                    //int index = y * width + x;
-                    //targetPixels[index] = Color.clear;
+                    var index = y * width + x;
+                    targetPixels[index] = Color.clear;
                 }
             }
 
@@ -54,28 +49,33 @@ namespace AillieoTech.Game
                     var index = y * width + x;
                     var point = new Vector2Int(x, y);
 
-                    float alpha = 0;
-                    foreach(var pieceData in new PieceData[] { pieceDataA, pieceDataB })
+                    byte alpha = 0;
+                    var color = sourcePixels[index];
+                    foreach (var pieceData in new PieceData[] { pieceDataA, pieceDataB })
                     {
                         if (pieceData.extendedRect.Contains(point))
                         {
                             var px = x - pieceData.extendedRect.x;
                             var py = y - pieceData.extendedRect.y;
                             var pIndex = px + py * pieceData.extendedRect.width;
-                            alpha = Mathf.Max(pieceData.mask[pIndex], alpha);
+                            alpha = (byte)Mathf.Max(pieceData.mask[pIndex], alpha);
+
+                            if (pieceData.border[pIndex] > 0)
+                            {
+                                color = Color.black;
+                                alpha = 255;
+                            }
                         }
                     }
 
-                    var color = sourcePixels[index];
-                    //color.a = (byte)Mathf.Max(color.a, (byte)Mathf.RoundToInt((alpha * 255)));
-                    color.a = (byte)Mathf.RoundToInt((alpha * 255));
+                    color.a = alpha;
                     targetPixels[index] = color;
                 }
             }
 
-            targetTexture.SetPixels32(targetPixels);
-            targetTexture.Apply();
-            UnityEditor.EditorUtility.SetDirty(targetTexture);
+            this.targetTexture.SetPixels32(targetPixels);
+            this.targetTexture.Apply();
+            UnityEditor.EditorUtility.SetDirty(this.targetTexture);
         }
 
         public float SDF(Vector2 point)

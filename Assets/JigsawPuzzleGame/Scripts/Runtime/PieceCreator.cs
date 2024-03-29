@@ -49,7 +49,7 @@ namespace AillieoTech.Game
 
             var colors = piece.mask.Select(alpha => new Color32(alpha, alpha, alpha, alpha)).ToArray();
 
-            var texture = new Texture2D(width, height, TextureFormat.R8, false);
+            var texture = new Texture2D(width, height, TextureFormat.Alpha8, false);
             texture.SetPixels32(colors);
 
             texture.Apply();
@@ -64,12 +64,73 @@ namespace AillieoTech.Game
 
             var colors = piece.border.Select(alpha => new Color32(alpha, alpha, alpha, alpha)).ToArray();
 
-            var texture = new Texture2D(width, height, TextureFormat.R8, false);
+            var texture = new Texture2D(width, height, TextureFormat.Alpha8, false);
             texture.SetPixels32(colors);
 
             texture.Apply();
 
             return texture;
+        }
+
+        public static Sprite CreateSprite(Texture2D texture)
+        {
+            return Sprite.Create(
+                texture,
+                new Rect(0, 0, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                100,
+                0,
+                SpriteMeshType.FullRect,
+                Vector4.zero,
+                true);
+        }
+
+        public static Sprite CreateSprite(Texture2D texture, PieceData piece)
+        {
+            //     The border sizes of the sprite (X=left, Y=bottom, Z=right, W=top).
+            var border = Vector4.zero;
+
+            var rect = piece.extendedRect.ToRectFloat();
+
+            if (rect.x < 0)
+            {
+                var left = -rect.x;
+                rect.x += left;
+                rect.width -= left;
+                border.x += left;
+            }
+
+            if (rect.y < 0)
+            {
+                var bottom = -rect.y;
+                rect.y += bottom;
+                rect.height -= bottom;
+                border.y += bottom;
+            }
+
+            if (rect.xMax >= texture.width)
+            {
+                var right = rect.xMax - texture.width;
+                rect.width -= right;
+                border.z += right;
+            }
+
+            if (rect.yMax >= texture.height)
+            {
+                var top = rect.yMax - texture.height;
+                rect.height -= top;
+                border.w += top;
+            }
+
+            return Sprite.Create(
+                texture,
+                rect,
+                new Vector2(0.5f, 0.5f),
+                100,
+                0,
+                SpriteMeshType.FullRect,
+                border,
+                true);
         }
 
         private static PieceData CreatePieceInternal(CuttingContext context, int index)

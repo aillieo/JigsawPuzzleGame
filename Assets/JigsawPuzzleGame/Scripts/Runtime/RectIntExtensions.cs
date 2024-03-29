@@ -4,9 +4,15 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using UnityEngine;
+
 namespace AillieoTech.Game
 {
     public static class RectIntExtensions
     {
+        public static Rect ToRectFloat(this RectInt rectInt)
+        {
+            return new Rect(rectInt.position, rectInt.size);
+        }
     }
 }

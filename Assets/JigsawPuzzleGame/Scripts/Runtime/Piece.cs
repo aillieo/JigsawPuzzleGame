@@ -16,19 +16,15 @@ namespace AillieoTech.Game
 
         public static Piece Create(Texture2D image, PieceData pieceData)
         {
-            GameObject go = new GameObject($"piece_{pieceData.index}");
+            var go = new GameObject($"piece_{pieceData.index}");
             var piece = go.AddComponent<Piece>();
 
             var sprite = go.AddComponent<SpriteRenderer>();
-            sprite.sprite = PieceCreator.CreateSprite(image, pieceData);
-            sprite.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
-
-            var mask = go.AddComponent<SpriteMask>();
-            var maskTexture = PieceCreator.CreateMaskTexture(pieceData);
-            mask.sprite = PieceCreator.CreateSprite(maskTexture);
+            var pieceTexture = PieceCreator.CreateMaskedTexture(image, pieceData);
+            sprite.sprite = PieceCreator.CreateSprite(pieceTexture);
 
             var list = new List<Vector2>();
-            mask.sprite.GetPhysicsShape(0, list);
+            sprite.sprite.GetPhysicsShape(0, list);
             PolygonCollider2D collider = go.AddComponent<PolygonCollider2D>();
             collider.SetPath(0, list);
 

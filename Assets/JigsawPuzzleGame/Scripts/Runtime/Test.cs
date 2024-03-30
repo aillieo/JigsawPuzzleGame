@@ -24,8 +24,8 @@ namespace AillieoTech.Game
         public async void Cut()
         {
             var context = new CuttingContext(new Vector2Int(this.sourceTexture.width, this.sourceTexture.height), this.dimensions);
-            var pieceDataA = await PieceCreator.CreatePiece(context, this.pieceIndexA);
-            var pieceDataB = await PieceCreator.CreatePiece(context, this.pieceIndexB);
+            var pieceDataA = await PieceCreator.CalculatePieceData(context, this.pieceIndexA);
+            var pieceDataB = await PieceCreator.CalculatePieceData(context, this.pieceIndexB);
 
             Color32[] sourcePixels = this.sourceTexture.GetPixels32();
             Color32[] targetPixels = this.targetTexture.GetPixels32();

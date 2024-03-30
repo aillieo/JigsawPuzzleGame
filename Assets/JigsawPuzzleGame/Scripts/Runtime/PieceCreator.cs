@@ -16,7 +16,7 @@ namespace AillieoTech.Game
     {
         private static SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
-        public static async Task<PieceData> CreatePiece(CuttingContext context, int index)
+        public static async Task<PieceData> CalculatePieceData(CuttingContext context, int index)
         {
             if (context.pieceData[index] != null)
             {
@@ -42,6 +42,12 @@ namespace AillieoTech.Game
             }
         }
 
+        public static Texture2D CreateMaskTexture(CuttingContext context, PieceData piece)
+        {
+            // instantiate from piece with same hash
+            throw new NotImplementedException();
+        }
+
         public static Texture2D CreateMaskTexture(PieceData piece)
         {
             var width = piece.extendedRect.width;
@@ -55,6 +61,63 @@ namespace AillieoTech.Game
             texture.Apply();
 
             return texture;
+        }
+
+        public static Texture2D CreateMaskedTexture(Texture2D boardTexture, PieceData piece)
+        {
+            CalculateSpriteCuttingParam(boardTexture, piece, out var rect, out var border);
+
+            var blockStartX = rect.x;
+            var blockStartY = rect.y;
+            var blockWidth = rect.width;
+            var blockHeight = rect.height;
+
+            var skipX = (int)border.x;
+            var skipY = (int)border.y;
+
+            var blockColors = boardTexture.GetPixels(blockStartX, blockStartY, blockWidth, blockHeight);
+
+            var pieceWidth = piece.extendedRect.width;
+            var pieceHeight = piece.extendedRect.height;
+            var pieceTexture = new Texture2D(pieceWidth, pieceHeight, TextureFormat.RGBA32, false);
+            var pieceColors = new Color32[pieceWidth * pieceHeight];
+
+            for (var x = 0; x < pieceWidth; x++)
+            {
+                for (var y = 0; y < pieceHeight; y++)
+                {
+                    if (x < skipX || y < skipY)
+                    {
+                        continue;
+                    }
+
+                    if (x - skipX >= blockWidth || y - skipY >= blockHeight)
+                    {
+                        continue;
+                    }
+
+                    var blockIndex = (x - skipX) + (y - skipY) * blockWidth;
+                    var textureColor = (Color32)blockColors[blockIndex];
+
+                    var pieceIndex = x + y * pieceWidth;
+
+                    var maskValue = piece.mask[pieceIndex];
+                    textureColor.a = maskValue;
+
+                    pieceColors[pieceIndex] = textureColor;
+                }
+            }
+
+            pieceTexture.SetPixels32(pieceColors);
+            pieceTexture.Apply();
+
+            return pieceTexture;
+        }
+
+        public static Texture2D CreateBorderTexture(CuttingContext context, PieceData piece)
+        {
+            // instantiate from piece with same hash
+            throw new NotImplementedException();
         }
 
         public static Texture2D CreateBorderTexture(PieceData piece)
@@ -85,46 +148,13 @@ namespace AillieoTech.Game
                 true);
         }
 
-        public static Sprite CreateSprite(Texture2D texture, PieceData piece)
+        public static Sprite CreateSprite(Texture2D boardTexture, PieceData piece)
         {
-            //     The border sizes of the sprite (X=left, Y=bottom, Z=right, W=top).
-            var border = Vector4.zero;
-
-            var rect = piece.extendedRect.ToRectFloat();
-
-            if (rect.x < 0)
-            {
-                var left = -rect.x;
-                rect.x += left;
-                rect.width -= left;
-                border.x += left;
-            }
-
-            if (rect.y < 0)
-            {
-                var bottom = -rect.y;
-                rect.y += bottom;
-                rect.height -= bottom;
-                border.y += bottom;
-            }
-
-            if (rect.xMax >= texture.width)
-            {
-                var right = rect.xMax - texture.width;
-                rect.width -= right;
-                border.z += right;
-            }
-
-            if (rect.yMax >= texture.height)
-            {
-                var top = rect.yMax - texture.height;
-                rect.height -= top;
-                border.w += top;
-            }
+            CalculateSpriteCuttingParam(boardTexture, piece, out var rect, out var border);
 
             return Sprite.Create(
-                texture,
-                rect,
+                boardTexture,
+                new Rect(rect.position, rect.size),
                 new Vector2(0.5f, 0.5f),
                 100,
                 0,
@@ -207,8 +237,6 @@ namespace AillieoTech.Game
             var xMin = extendedRect.xMin;
             var yMin = extendedRect.yMin;
 
-            var sdfThresholdL = PieceShapeDefine.sdfThresholdL * piece.rawRect.width;
-            var sdfThresholdH = PieceShapeDefine.sdfThresholdH * piece.rawRect.width;
             for (var x = xMin; x < extendedRect.xMax; x++)
             {
                 for (var y = yMin; y < extendedRect.yMax; y++)
@@ -216,7 +244,6 @@ namespace AillieoTech.Game
                     var index = (x - xMin) + ((y - yMin) * width);
                     var point = new Vector2Int(x, y);
                     var sdfValue = GetSDFValue(piece, point);
-                    // var alpha = 1 - SDFUtils.SmoothStep(sdfThresholdL, sdfThresholdH, sdfValue);
                     var alpha = 1 - SDFUtils.Step(0, sdfValue);
                     piece.mask[index] = (byte)(alpha * 255);
                 }
@@ -403,6 +430,44 @@ namespace AillieoTech.Game
             }
 
             return sdf;
+        }
+
+        private static void CalculateSpriteCuttingParam(Texture2D boardTexture, PieceData piece, out RectInt rect, out Vector4 border)
+        {
+            //     The border sizes of the sprite (X=left, Y=bottom, Z=right, W=top).
+            border = Vector4.zero;
+
+            rect = piece.extendedRect;
+
+            if (rect.x < 0)
+            {
+                var left = -rect.x;
+                rect.x += left;
+                rect.width -= left;
+                border.x += left;
+            }
+
+            if (rect.y < 0)
+            {
+                var bottom = -rect.y;
+                rect.y += bottom;
+                rect.height -= bottom;
+                border.y += bottom;
+            }
+
+            if (rect.xMax >= boardTexture.width)
+            {
+                var right = rect.xMax - boardTexture.width;
+                rect.width -= right;
+                border.z += right;
+            }
+
+            if (rect.yMax >= boardTexture.height)
+            {
+                var top = rect.yMax - boardTexture.height;
+                rect.height -= top;
+                border.w += top;
+            }
         }
     }
 }

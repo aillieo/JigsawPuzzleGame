@@ -10,6 +10,7 @@ namespace AillieoTech.Game
     using UnityEngine;
 
     [RequireComponent(typeof(DragEvents))]
+    [RequireComponent(typeof(GameUI))]
     public class Board : MonoBehaviour
     {
         public Texture2D image;
@@ -46,10 +47,29 @@ namespace AillieoTech.Game
             }
         }
 
-        private async void Start()
+        private async void RestartGame()
         {
+            if (this.managedPieces != null)
+            {
+                foreach (var piece in this.managedPieces)
+                {
+                    Destroy(piece.gameObject);
+                }
+
+                this.managedPieces = null;
+            }
+
             await this.Generate();
             this.Shuffle();
+
+            var gameUI = this.GetComponent<GameUI>();
+            gameUI.isPlaying = true;
+            gameUI.gameStartTime = Time.time;
+        }
+
+        private void Start()
+        {
+            this.RestartGame();
         }
 
         private void OnEnable()
@@ -58,6 +78,9 @@ namespace AillieoTech.Game
             dragEvents.OnDragBegin += this.OnDragBegin;
             dragEvents.OnDrag += this.OnDrag;
             dragEvents.OnDragEnd += this.OnDragEnd;
+
+            var gameUI = this.GetComponent<GameUI>();
+            gameUI.onRestartClicked += this.RestartGame;
         }
 
         private void OnDisable()
@@ -66,6 +89,9 @@ namespace AillieoTech.Game
             dragEvents.OnDragBegin -= this.OnDragBegin;
             dragEvents.OnDrag -= this.OnDrag;
             dragEvents.OnDragEnd -= this.OnDragEnd;
+
+            var gameUI = this.GetComponent<GameUI>();
+            gameUI.onRestartClicked -= this.RestartGame;
         }
 
         private void OnDragBegin(Vector2 position)
@@ -95,6 +121,8 @@ namespace AillieoTech.Game
                 this.draggingPiece.OnDragEnd(position);
                 this.FixPiecePosition(this.draggingPiece, position);
                 this.draggingPiece = null;
+
+                this.CheckGameEnd();
             }
         }
 
@@ -144,6 +172,25 @@ namespace AillieoTech.Game
 
             position.z = this.transform.position.z;
             piece.transform.position = position;
+        }
+
+        private void CheckGameEnd()
+        {
+            var pieceCount = this.dimension.x * this.dimension.y;
+            for (var i = 0; i < pieceCount; i++)
+            {
+                var piece = this.managedPieces[i];
+                var pieceData = piece.pieceData;
+                var expectedPosition = (Vector3)(Vector2)pieceData.extendedRect.position / 100f;
+                if (Vector2.Distance(piece.transform.position, expectedPosition) > 1f)
+                {
+                    return;
+                }
+            }
+
+            var gameUI = this.GetComponent<GameUI>();
+            gameUI.isPlaying = false;
+            gameUI.gemeEndTime = Time.time;
         }
     }
 }

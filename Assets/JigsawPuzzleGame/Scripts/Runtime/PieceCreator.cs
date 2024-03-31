@@ -96,10 +96,10 @@ namespace AillieoTech.Game
                         continue;
                     }
 
-                    var blockIndex = (x - skipX) + (y - skipY) * blockWidth;
+                    var blockIndex = (x - skipX) + ((y - skipY) * blockWidth);
                     var textureColor = (Color32)blockColors[blockIndex];
 
-                    var pieceIndex = x + y * pieceWidth;
+                    var pieceIndex = x + (y * pieceWidth);
 
                     var maskValue = piece.mask[pieceIndex];
                     textureColor.a = maskValue;
@@ -434,7 +434,7 @@ namespace AillieoTech.Game
 
         private static void CalculateSpriteCuttingParam(Texture2D boardTexture, PieceData piece, out RectInt rect, out Vector4 border)
         {
-            //     The border sizes of the sprite (X=left, Y=bottom, Z=right, W=top).
+            // The border sizes of the sprite (X=left, Y=bottom, Z=right, W=top).
             border = Vector4.zero;
 
             rect = piece.extendedRect;

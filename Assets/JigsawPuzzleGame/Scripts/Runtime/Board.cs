@@ -19,6 +19,8 @@ namespace AillieoTech.Game
         private Piece[] managedPieces;
         private Piece draggingPiece;
 
+        private float positionFixThreshold = 0.2f;
+
         [ContextMenu("Generate")]
         private async Task Generate()
         {
@@ -31,7 +33,7 @@ namespace AillieoTech.Game
                 var pieceData = await PieceCreator.CalculatePieceData(context, i);
                 var pieceObject = Piece.Create(this.image, pieceData);
                 this.managedPieces[i] = pieceObject;
-                pieceObject.transform.localPosition = (Vector3)(Vector2)pieceData.extendedRect.position / 100f;
+                pieceObject.transform.localPosition = this.GetExpectedPosition(pieceData);
             }
         }
 
@@ -119,10 +121,13 @@ namespace AillieoTech.Game
             if (this.draggingPiece != null)
             {
                 this.draggingPiece.OnDragEnd(position);
-                this.FixPiecePosition(this.draggingPiece, position);
+                var fixHappen = this.FixPiecePosition(this.draggingPiece, position);
                 this.draggingPiece = null;
 
-                this.CheckGameEnd();
+                if (fixHappen)
+                {
+                    this.CheckGameEnd();
+                }
             }
         }
 
@@ -148,6 +153,13 @@ namespace AillieoTech.Game
             return null;
         }
 
+        private Vector2 GetExpectedPosition(PieceData pieceData)
+        {
+            var start = -new Vector2(this.image.width, this.image.height) * 0.5f;
+            var centerPosition = start + pieceData.rawRect.center;
+            return centerPosition / 100f;
+        }
+
         private void UpdatePiecePosition(Piece piece, Vector2 screenPosition)
         {
             var worldPosition = Camera.main.ScreenToWorldPoint(screenPosition);
@@ -158,20 +170,25 @@ namespace AillieoTech.Game
             piece.transform.position = position;
         }
 
-        private void FixPiecePosition(Piece piece, Vector2 screenPosition)
+        private bool FixPiecePosition(Piece piece, Vector2 screenPosition)
         {
-            var worldPosition = Camera.main.ScreenToWorldPoint(screenPosition);
             var position = piece.transform.position;
 
             var pieceData = piece.pieceData;
-            var expectedPosition = (Vector3)(Vector2)pieceData.extendedRect.position / 100f;
-            if (Vector2.Distance(position, expectedPosition) < 1f)
+            var expectedPosition = this.GetExpectedPosition(pieceData);
+            if (Vector2.Distance(position, expectedPosition) < this.positionFixThreshold)
             {
                 position = expectedPosition;
+                position.z = this.transform.position.z;
+                piece.transform.position = position;
+                return true;
             }
-
-            position.z = this.transform.position.z;
-            piece.transform.position = position;
+            else
+            {
+                position.z = this.transform.position.z;
+                piece.transform.position = position;
+                return false;
+            }
         }
 
         private void CheckGameEnd()
@@ -181,8 +198,8 @@ namespace AillieoTech.Game
             {
                 var piece = this.managedPieces[i];
                 var pieceData = piece.pieceData;
-                var expectedPosition = (Vector3)(Vector2)pieceData.extendedRect.position / 100f;
-                if (Vector2.Distance(piece.transform.position, expectedPosition) > 1f)
+                var expectedPosition = this.GetExpectedPosition(pieceData);
+                if (Vector2.Distance(piece.transform.position, expectedPosition) > this.positionFixThreshold)
                 {
                     return;
                 }

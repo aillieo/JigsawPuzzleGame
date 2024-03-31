@@ -12,12 +12,13 @@ namespace AillieoTech.Game
 
     public class Piece : MonoBehaviour
     {
-        private PieceData pieceData;
+        internal PieceData pieceData;
 
         public static Piece Create(Texture2D image, PieceData pieceData)
         {
             var go = new GameObject($"piece_{pieceData.index}");
             var piece = go.AddComponent<Piece>();
+            piece.pieceData = pieceData;
 
             var sprite = go.AddComponent<SpriteRenderer>();
             var pieceTexture = PieceCreator.CreateMaskedTexture(image, pieceData);
@@ -29,6 +30,18 @@ namespace AillieoTech.Game
             collider.SetPath(0, list);
 
             return piece;
+        }
+
+        public void OnDragBegin(Vector2 screenPosition)
+        {
+        }
+
+        public void OnDrag(Vector2 screenPosition)
+        {
+        }
+
+        public void OnDragEnd(Vector2 screenPosition)
+        {
         }
     }
 }

@@ -6,6 +6,7 @@
 
 namespace AillieoTech.Game
 {
+    using System.Collections;
     using System.Threading.Tasks;
     using UnityEngine;
 
@@ -22,7 +23,7 @@ namespace AillieoTech.Game
         private float positionFixThreshold = 0.2f;
 
         [ContextMenu("Generate")]
-        private async Task Generate()
+        private IEnumerator Generate()
         {
             var size = new Vector2Int(this.image.width, this.image.height);
             var pieceCount = this.dimension.x * this.dimension.y;
@@ -30,10 +31,11 @@ namespace AillieoTech.Game
             var context = new CuttingContext(size, this.dimension);
             for (var i = 0; i < pieceCount; i++)
             {
-                var pieceData = await PieceCreator.CalculatePieceData(context, i);
+                var pieceData = PieceCreator.CalculatePieceData(context, i);
                 var pieceObject = Piece.Create(this.image, pieceData);
                 this.managedPieces[i] = pieceObject;
                 pieceObject.transform.localPosition = this.GetExpectedPosition(pieceData);
+                yield return new WaitForSeconds(0.1f);
             }
         }
 
@@ -49,7 +51,12 @@ namespace AillieoTech.Game
             }
         }
 
-        private async void RestartGame()
+        private void RestartGame()
+        {
+            this.StartCoroutine(this.CoRestartGame());
+        }
+
+        private IEnumerator CoRestartGame()
         {
             if (this.managedPieces != null)
             {
@@ -61,7 +68,7 @@ namespace AillieoTech.Game
                 this.managedPieces = null;
             }
 
-            await this.Generate();
+            yield return this.Generate();
             this.Shuffle();
 
             var gameUI = this.GetComponent<GameUI>();

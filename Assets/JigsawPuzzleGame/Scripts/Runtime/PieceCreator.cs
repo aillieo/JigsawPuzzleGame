@@ -14,9 +14,10 @@ namespace AillieoTech.Game
 
     public static class PieceCreator
     {
+#if !UNITY_WEBGL
         private static SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
-        public static async Task<PieceData> CalculatePieceData(CuttingContext context, int index)
+        public static async Task<PieceData> CalculatePieceDataAsync(CuttingContext context, int index)
         {
             if (context.pieceData[index] != null)
             {
@@ -40,6 +41,24 @@ namespace AillieoTech.Game
             {
                 semaphore.Release();
             }
+        }
+#endif
+
+        public static PieceData CalculatePieceData(CuttingContext context, int index)
+        {
+            if (context.pieceData[index] != null)
+            {
+                return context.pieceData[index];
+            }
+
+            if (context.pieceData[index] != null)
+            {
+                return context.pieceData[index];
+            }
+
+            var piece = CreatePieceInternal(context, index);
+            context.pieceData[index] = piece;
+            return piece;
         }
 
         public static Texture2D CreateMaskTexture(CuttingContext context, PieceData piece)
